@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AccountInterstitial;
 use App\Http\Middleware\Admin;
+use App\Http\Middleware\AikidoMiddleware;
 use App\Http\Middleware\Api\Admin as ApiAdmin;
 use App\Http\Middleware\FrameGuard;
 use App\Http\Middleware\GrantFirstPartyToken;
@@ -90,6 +91,7 @@ return Application::configure(basePath: dirname(__DIR__))
             PreventRequestForgery::class,
             SubstituteBindings::class,
             CreateFreshApiToken::class,
+            AikidoMiddleware::class,
             'restricted',
         ]);
 
@@ -109,6 +111,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'throttle:api',
             'bindings',
             GrantFirstPartyToken::class,
+            AikidoMiddleware::class,
         ]);
 
         $middleware->preventRequestForgery(except: [
