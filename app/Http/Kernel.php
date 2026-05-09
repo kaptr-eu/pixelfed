@@ -59,6 +59,7 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'web' => [
+<<<<<<< HEAD
             EncryptCookies::class,
             FrameGuard::class,
             AddQueuedCookiesToResponse::class,
@@ -68,6 +69,7 @@ class Kernel extends HttpKernel
             VerifyCsrfToken::class,
             SubstituteBindings::class,
             CreateFreshApiToken::class,
+            \App\Http\Middleware\AikidoMiddleware::class,
             // 'restricted',
         ],
 
@@ -84,6 +86,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             'bindings',
+            \App\Http\Middleware\AikidoMiddleware::class,
         ],
     ];
 
