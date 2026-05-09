@@ -17,7 +17,7 @@
         "jquery": "^3.6.0",
         "laravel-echo": "^1.12.0",
         "laravel-mix-make-file-hash": "^2.2.0",
-        "lodash": "^4.17.21",
+        "lodash": "^4.18.1",
         "popper.js": "^1.16.1",
         "pusher-js": "^7.1.1-beta",
         "resolve-url-loader": "^5.0.0",
