@@ -20,20 +20,11 @@ class AikidoMiddleware
         }
 
         $decision = \aikido\should_block_request();
-
         if ($decision->block) {
-            if ($decision->type == 'blocked') {
-                if ($decision->trigger == 'user') {
-                    return response('Your user is blocked!', 403);
-                }
-            } elseif ($decision->type == 'ratelimited') {
-                if ($decision->trigger == 'user') {
-                    return response('Your user exceeded the rate limit for this endpoint!', 429);
-                } elseif ($decision->trigger == 'ip') {
-                    return response("Your IP ({$decision->ip}) exceeded the rate limit for this endpoint!", 429);
-                } elseif ($decision->trigger == 'group') {
-                    return response('Your group exceeded the rate limit for this endpoint!', 429);
-                }
+            if ($decision->type == 'ratelimited') {
+                abort(429, 'You are rate limited, please wait a minute before trying again.');
+            } else {
+                abort(403, 'You are blocked, contact samuel@aikido.dev if you think this is a mistake.');
             }
         }
 
