@@ -59,7 +59,6 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'web' => [
-<<<<<<< HEAD
             EncryptCookies::class,
             FrameGuard::class,
             AddQueuedCookiesToResponse::class,
