@@ -31,10 +31,6 @@ task('npm-build', function () {
 
 task('workers-stop', function () {
     cd('{{release_path}}');
-    // Horizon runs the queues. queue:restart only signals the child workers,
-    // the Horizon master keeps respawning them from the release it was booted
-    // from, so it has to be terminated too or deploys never reach the workers.
-    run('php artisan horizon:terminate');
     run('php artisan queue:restart');
 });
 
