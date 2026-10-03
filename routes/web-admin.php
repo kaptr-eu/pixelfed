@@ -5,8 +5,23 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminCuratedRegisterController;
 use App\Http\Controllers\AdminShadowFilterController;
 use App\Http\Controllers\PageController;
+use Illuminate\Contracts\View\Factory;
+use Laravel\Horizon\Http\Controllers\HomeController as HorizonHomeController;
+use Laravel\Pulse\Pulse;
 
-Route::domain(config('pixelfed.domain.admin'))->prefix('i/admin')->group(function () {
+// Laravel Pulse + Horizon dashboards, kept under `admin/*` so their routes can
+// never collide with the `{username}` profile catch-all in routes/web.php
+Route::domain(config('pixelfed.domain.app'))->middleware(['localization'])->group(function () {
+    Route::get(config('pulse.path', 'admin/pulse'), function (Pulse $pulse, Factory $view) {
+        return $view->make('pulse::dashboard');
+    })->middleware('pulse')->name('pulse');
+
+    Route::get(config('horizon.path'), [HorizonHomeController::class, 'index'])
+        ->middleware('horizon')
+        ->name('horizon.base');
+});
+
+Route::domain(config('pixelfed.domain.admin'))->prefix('i/admin')->middleware(['localization'])->group(function () {
     Route::redirect('/', '/dashboard');
     Route::redirect('timeline', config('app.url').'/timeline');
     Route::get('settings/custom-css', [AdminController::class, 'customCss'])->name('admin.custom-css');

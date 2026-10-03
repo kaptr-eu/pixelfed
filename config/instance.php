@@ -88,10 +88,6 @@ return [
 
     'hide_nsfw_on_public_feeds' => env('PF_HIDE_NSFW_ON_PUBLIC_FEEDS', false),
 
-    'avatar' => [
-        'local_to_cloud' => env('PF_LOCAL_AVATAR_TO_CLOUD', false),
-    ],
-
     'admin_invites' => [
         'enabled' => env('PF_ADMIN_INVITES_ENABLED', true),
     ],
@@ -150,8 +146,6 @@ return [
         'enabled' => env('INSTANCE_CUR_REG', false),
 
         'resend_confirmation_limit' => env('INSTANCE_CUR_REG_RESEND_LIMIT', 5),
-
-        'captcha_enabled' => env('INSTANCE_CUR_REG_CAPTCHA', env('CAPTCHA_ENABLED', false)),
 
         'state' => [
             'fallback_on_closed_reg' => true,

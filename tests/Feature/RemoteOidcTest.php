@@ -109,6 +109,40 @@ it('shows the oidc start redirect', function () {
 //     $this->assertDatabaseCount('users', $originalUserCount);
 // });
 
+it('lets an oidc user reach a dangerzone route without a password prompt', function () {
+    config(['remote-auth.oidc.enabled' => true]);
+    config(['remote-auth.oidc.field_username' => 'preferred_username']);
+
+    $oauthData = [
+        'sub' => Str::random(10),
+        'name' => fake()->name,
+        'preferred_username' => 'oidcuser',
+        'email' => fake()->unique()->freeEmail,
+    ];
+
+    $this->partialMock(UserOidcService::class, function (MockInterface $mock) use ($oauthData) {
+        $mock->shouldReceive('getAccessToken')->once()->andReturn(new AccessToken(['access_token' => 'token']));
+        $mock->shouldReceive('getResourceOwner')->once()->andReturn(new GenericResourceOwner($oauthData, 'sub'));
+    });
+
+    // Complete the OIDC login; this marks the session password-confirmed so the
+    // random-password OIDC account can pass the sudo (dangerzone) gate.
+    $this->withSession(['oauth2state' => 'abc123'])
+        ->get('auth/oidc/callback?state=abc123&code=1')
+        ->assertRedirect('/');
+
+    $user = UserOidcMapping::where('oidc_id', $oauthData['sub'])->first()->user;
+    expect($user->register_source)->toBe('oidc');
+
+    // A real dangerzone-gated route must NOT bounce the OIDC user to the sudo
+    // password form (which they could never satisfy with a random password).
+    $response = $this->get('/settings/security');
+
+    $location = $response->headers->get('Location');
+    expect($location === null || ! str_contains($location, 'password'))->toBeTrue();
+    expect($location === null || ! str_contains($location, '/i/auth/sudo'))->toBeTrue();
+});
+
 it('ensures a valid username from the oidc callback', function () {
     config(['remote-auth.oidc.enabled' => true]);
     config(['remote-auth.oidc.field_username' => 'preferred_username']);
@@ -116,13 +150,21 @@ it('ensures a valid username from the oidc callback', function () {
     $dataset = [
         'john.doe@domain.com' => 'johndoe',
         'test+user@part1@domain.com' => 'testuser',
-        'user!#$%^&*()_test' => 'user_test',
+        // Underscores are stripped so the result satisfies ValidUsername's
+        // single-separator cap (see the multi-underscore cases below).
+        'user!#$%^&*()_test' => 'usertest',
         'jean-luc.picard' => 'jeanlucpicard',
         'supercalifragilisticexpialidøcious@test.com' => 'supercalifragilisticexpialidci',
-        'hélène_renåud' => 'hlne_renud',
+        'hélène_renåud' => 'hlnerenud',
         '123456789' => '123456789',
-        '  user _ name  ' => 'user_name',
+        '  jane _ name  ' => 'janename',
         'foo+bar@sub.domain.co.uk' => 'foobar',
+        // Multi-underscore preferred_usernames used to survive sanitization and
+        // then fail ValidUsername (>1 separator), permanently locking the user
+        // out of OIDC provisioning. They must now provision cleanly.
+        'a_b_c' => 'abc',
+        'john_doe_test' => 'johndoetest',
+        'first_last_dept' => 'firstlastdept',
     ];
 
     foreach ($dataset as $input => $expected) {

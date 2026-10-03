@@ -31,7 +31,7 @@ class PlaceController extends Controller
             return $item && count($item['media_attachments'][0]);
         })->take(108)->values();
 
-        return view('discover.places.show', compact('place', 'posts'));
+        return view('discover.places.show', ['place' => $place, 'posts' => $posts]);
     }
 
     public function directoryHome(Request $request): View
@@ -40,13 +40,13 @@ class PlaceController extends Controller
             ->distinct('country')
             ->simplePaginate(48);
 
-        return view('discover.places.directory.home', compact('places'));
+        return view('discover.places.directory.home', ['places' => $places]);
     }
 
     public function directoryCities(Request $request, $country): View
     {
         $country = urldecode($country);
-        $operator = config('database.default') === 'pgsql' ? 'ilike' : '=';
+        $operator = db_is_pgsql() ? 'ilike' : '=';
 
         $places = Place::where('country', $operator, $country)
             ->orderBy('name', 'asc')
@@ -57,6 +57,6 @@ class PlaceController extends Controller
             abort(404, 'Country not found');
         }
 
-        return view('discover.places.directory.cities', compact('places'));
+        return view('discover.places.directory.cities', ['places' => $places]);
     }
 }

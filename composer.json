@@ -16,7 +16,6 @@
         "ext-redis": "*",
         "bacon/bacon-qr-code": "^3.0",
         "brick/math": "^0.14",
-        "buzz/laravel-h-captcha": "^1.0.4",
         "deployer/deployer": "^7.5",
         "doctrine/dbal": "^4.0",
         "guzzlehttp/guzzle": "^7.10",
@@ -27,7 +26,7 @@
         "laravel/framework": "^13.0",
         "laravel/horizon": "^5.0",
         "laravel/passport": "^13.4.4",
-        "laravel/pulse": "^1.3",
+        "laravel/pulse": "^1.8",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "laravel/ui": "^4.2",
@@ -43,7 +42,7 @@
         "pragmarx/google2fa": "^9.0",
         "predis/predis": "^3.2",
         "pusher/pusher-php-server": "^7.2",
-        "resend/resend-php": "^0.13.0",
+        "resend/resend-php": "^1.14",
         "spatie/laravel-backup": "^10.0",
         "spatie/laravel-honeypot": "^4.7",
         "spatie/laravel-image-optimizer": "^1.8.2",
@@ -53,6 +52,7 @@
         "symfony/mailgun-mailer": "^7.3"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.7",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.13",
@@ -113,7 +113,14 @@
         "test:filter": "./vendor/bin/pest --compact --filter",
         "test:quick": "./vendor/bin/pest --compact",
         "lint": "./vendor/bin/pint",
-        "lint:test": "./vendor/bin/pint --test"
+        "lint:test": "./vendor/bin/pint --test",
+        "translate": [
+            "@php artisan i18n:export"
+        ],
+        "build": [
+            "npm ci",
+            "npm run production"
+        ]
 
     },
     "config": {

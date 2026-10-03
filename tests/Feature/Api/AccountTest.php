@@ -97,6 +97,41 @@ describe('GET /api/v1/accounts/{id}/statuses', function () {
         expect($pageTwoIds[0] ?? null)->not->toBe($lastId)
             ->and(array_intersect($pageOneIds, $pageTwoIds))->toBeEmpty();
     });
+
+    it('accepts limit=100 as requested by the Portfolio Curate page', function () {
+        // The Portfolio "Curate" page requests limit=100. A strict max:40
+        // validation rule 422'd that request and broke the page (#7328); the
+        // endpoint now allows up to 100.
+        $user = User::factory()->create();
+        $user->refresh();
+        $targetUser = User::factory()->create();
+        $targetUser->refresh();
+        Status::factory()->count(45)->create([
+            'profile_id' => $targetUser->profile_id,
+            'type' => 'photo',
+            'scope' => 'public',
+        ]);
+        Passport::actingAs($user, ['read']);
+
+        $body = $this->getJson("/api/v1/accounts/{$targetUser->profile_id}/statuses?only_media=1&limit=100")
+            ->assertOk()
+            ->assertJsonIsArray()
+            ->json();
+
+        // All 45 media statuses fit under the raised cap of 100.
+        expect(count($body))->toBe(45);
+    });
+
+    it('rejects a limit above the 100 maximum', function () {
+        $user = User::factory()->create();
+        $user->refresh();
+        $targetUser = User::factory()->create();
+        $targetUser->refresh();
+        Passport::actingAs($user, ['read']);
+
+        $this->getJson("/api/v1/accounts/{$targetUser->profile_id}/statuses?limit=101")
+            ->assertStatus(422);
+    });
 });
 
 describe('GET /api/v1/accounts/{id}/followers', function () {
@@ -167,7 +202,11 @@ describe('scope enforcement on writes', function () {
 
 describe('first-party session auth', function () {
     it('allows writes without a token', function () {
-        config(['sanctum.stateful' => ['pixelfed.test']]);
+        // Derive the stateful domain from app.url so the Origin header and the
+        // sanctum.stateful entry always match, regardless of the environment's
+        // configured APP_URL (e.g. pixelfed.test in CI vs a local dev domain).
+        $host = parse_url(config('app.url'), PHP_URL_HOST);
+        config(['sanctum.stateful' => [$host]]);
         $user = User::factory()->create();
         $user->refresh();
         $status = Status::factory()->create([

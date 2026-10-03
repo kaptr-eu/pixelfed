@@ -17,6 +17,17 @@ use Illuminate\Support\Str;
 
 class CuratedRegisterController extends Controller
 {
+    /**
+     * Whether a captcha should be enforced on the curated registration flow.
+     *
+     * True when the curated-registration-specific flag is on, or when the
+     * platform captcha is enabled with its "curated_register" surface active.
+     */
+    protected function curatedCaptchaEnabled(): bool
+    {
+        return app('captcha.manager')->activeOn('curated_register');
+    }
+
     public function preCheck($allowWhenDisabled = false): void
     {
         if (! $allowWhenDisabled) {
@@ -47,7 +58,7 @@ class CuratedRegisterController extends Controller
             $request->has('next') &&
             $request->session()->has('cur-reg-con.cr-id');
 
-        return view('auth.curated-register.concierge', compact('emailConfirmed'));
+        return view('auth.curated-register.concierge', ['emailConfirmed' => $emailConfirmed]);
     }
 
     public function conciergeResponseSent(Request $request): View
@@ -69,15 +80,15 @@ class CuratedRegisterController extends Controller
         );
         $crid = $request->session()->get('cur-reg-con.cr-id');
         $arid = $request->session()->get('cur-reg-con.ac-id');
-        $showCaptcha = config('instance.curated_registration.captcha_enabled');
+        $showCaptcha = $this->curatedCaptchaEnabled();
         if ($attempts = $request->session()->get('cur-reg-con-attempt')) {
-            $showCaptcha = $attempts && $attempts >= 2;
+            $showCaptcha = $showCaptcha && $attempts >= 2;
         } else {
             $showCaptcha = false;
         }
         $activity = CuratedRegisterActivity::whereRegisterId($crid)->whereFromAdmin(true)->findOrFail($arid);
 
-        return view('auth.curated-register.concierge_form', compact('activity', 'showCaptcha'));
+        return view('auth.curated-register.concierge_form', ['activity' => $activity, 'showCaptcha' => $showCaptcha]);
     }
 
     public function conciergeFormStore(Request $request): RedirectResponse|View
@@ -98,9 +109,10 @@ class CuratedRegisterController extends Controller
             'crid' => 'required|integer|min:1',
             'acid' => 'required|integer|min:1',
         ];
-        if (config('instance.curated_registration.captcha_enabled') && $attempts >= 3) {
-            $rules['h-captcha-response'] = 'required|captcha';
-            $messages['h-captcha-response.required'] = 'The captcha must be filled';
+        if ($this->curatedCaptchaEnabled() && $attempts >= 3) {
+            $captchaField = app('captcha.manager')->active()->responseField();
+            $rules[$captchaField] = 'required|captcha_verify';
+            $messages[$captchaField.'.required'] = 'The captcha must be filled';
         }
         $this->validate($request, $rules, $messages);
         $crid = $request->session()->get('cur-reg-con.cr-id');
@@ -141,9 +153,10 @@ class CuratedRegisterController extends Controller
             'response' => 'required_if:action,message|string|min:20|max:1000',
         ];
         $messages = [];
-        if (config('instance.curated_registration.captcha_enabled')) {
-            $rules['h-captcha-response'] = 'required|captcha';
-            $messages['h-captcha-response.required'] = 'The captcha must be filled';
+        if ($this->curatedCaptchaEnabled()) {
+            $captchaField = app('captcha.manager')->active()->responseField();
+            $rules[$captchaField] = 'required|captcha_verify';
+            $messages[$captchaField.'.required'] = 'The captcha must be filled';
         }
         $this->validate($request, $rules, $messages);
 
@@ -219,9 +232,10 @@ class CuratedRegisterController extends Controller
 
         $messages = [];
 
-        if (config('instance.curated_registration.captcha_enabled')) {
-            $rules['h-captcha-response'] = 'required|captcha';
-            $messages['h-captcha-response.required'] = 'The captcha must be filled';
+        if ($this->curatedCaptchaEnabled()) {
+            $captchaField = app('captcha.manager')->active()->responseField();
+            $rules[$captchaField] = 'required|captcha_verify';
+            $messages[$captchaField.'.required'] = 'The captcha must be filled';
         }
 
         $this->validate($request, $rules, $messages);
@@ -279,9 +293,10 @@ class CuratedRegisterController extends Controller
             'code' => 'required',
         ];
         $messages = [];
-        if (config('instance.curated_registration.captcha_enabled')) {
-            $rules['h-captcha-response'] = 'required|captcha';
-            $messages['h-captcha-response.required'] = 'The captcha must be filled';
+        if ($this->curatedCaptchaEnabled()) {
+            $captchaField = app('captcha.manager')->active()->responseField();
+            $rules[$captchaField] = 'required|captcha_verify';
+            $messages[$captchaField.'.required'] = 'The captcha must be filled';
         }
         $this->validate($request, $rules, $messages);
 
@@ -317,17 +332,24 @@ class CuratedRegisterController extends Controller
 
         switch ($step) {
             case 1:
+                // Enforce the age gate server-side: step 1 cannot advance
+                // without the age-verification confirmation set by the client
+                // after the date-of-birth check. This prevents bypassing the
+                // gate by manipulating the client-side script.
+                $this->validate($request, [
+                    'age_verified' => 'required|accepted',
+                ]);
                 $step = 2;
                 $request->session()->put('cur-step', 1);
 
-                return view('auth.curated-register.index', compact('step'));
+                return view('auth.curated-register.index', ['step' => $step]);
 
             case 2:
                 $this->stepTwo($request);
                 $step = 3;
                 $request->session()->put('cur-step', 2);
 
-                return view('auth.curated-register.index', compact('step'));
+                return view('auth.curated-register.index', ['step' => $step]);
 
             case 3:
                 $this->stepThree($request);
@@ -336,7 +358,7 @@ class CuratedRegisterController extends Controller
                 $verifiedEmail = true;
                 $request->session()->pull('cur-reg');
 
-                return view('auth.curated-register.index', compact('step', 'verifiedEmail'));
+                return view('auth.curated-register.index', ['step' => $step, 'verifiedEmail' => $verifiedEmail]);
 
             default:
                 return redirect(route('help.email-confirmation-issues'));

@@ -76,7 +76,7 @@ class LoginController extends Controller
 
         $user = PendingLoginService::user($request);
 
-        if (! $user) {
+        if (! $user instanceof User) {
             return redirect()->route('login');
         }
 
@@ -151,7 +151,7 @@ class LoginController extends Controller
 
         $user = $this->pendingUser($request, PendingLoginService::STEP_2FA);
 
-        if (! $user) {
+        if (! $user instanceof User) {
             return $this->redirectToPendingStep($request);
         }
 
@@ -206,7 +206,7 @@ class LoginController extends Controller
     {
         $user = $this->pendingUser($request, PendingLoginService::STEP_VERIFY);
 
-        if (! $user) {
+        if (! $user instanceof User) {
             return $this->redirectToPendingStep($request);
         }
 
@@ -231,7 +231,7 @@ class LoginController extends Controller
     {
         $user = $this->pendingUser($request, PendingLoginService::STEP_VERIFY);
 
-        if (! $user) {
+        if (! $user instanceof User) {
             return $this->redirectToPendingStep($request);
         }
 
@@ -267,7 +267,7 @@ class LoginController extends Controller
     {
         $user = $this->pendingUser($request, PendingLoginService::STEP_VERIFY);
 
-        if (! $user) {
+        if (! $user instanceof User) {
             return $this->redirectToPendingStep($request);
         }
 
@@ -327,7 +327,7 @@ class LoginController extends Controller
             $randomToken
         );
 
-        if (! $user) {
+        if (! $user instanceof User) {
             if ($request->user() !== null) {
                 return redirect($this->redirectPath());
             }
@@ -443,7 +443,7 @@ class LoginController extends Controller
 
     protected function requiresEmailVerification(User $user): bool
     {
-        return (bool) config('pixelfed.enforce_email_verification')
+        return (bool) config_cache('pixelfed.enforce_email_verification')
             && is_null($user->email_verified_at);
     }
 
@@ -553,21 +553,10 @@ class LoginController extends Controller
 
         $messages = [];
 
-        if (
-            (bool) config_cache('captcha.enabled') &&
-            (bool) config_cache('captcha.active.login') ||
-            (
-                (bool) config_cache('captcha.triggers.login.enabled') &&
-                request()->session()->has('login_attempts') &&
-                request()->session()->get('login_attempts') >=
-                config('captcha.triggers.login.attempts')
-            )
-        ) {
-            $rules['h-captcha-response'] =
-                'required|filled|captcha|min:5';
-
-            $messages['h-captcha-response.required'] =
-                'The captcha must be filled';
+        if (app('captcha.manager')->activeOn('login')) {
+            $field = app('captcha.manager')->active()->responseField();
+            $rules[$field] = 'required|filled|captcha_verify';
+            $messages[$field.'.required'] = 'The captcha must be filled';
         }
 
         $request->validate($rules, $messages);
@@ -597,22 +586,6 @@ class LoginController extends Controller
     protected function sendFailedLoginResponse(
         Request $request
     ): void {
-        if (config('captcha.triggers.login.enabled')) {
-            if ($request->session()->has('login_attempts')) {
-                $ct = $request->session()->get('login_attempts');
-
-                $request->session()->put(
-                    'login_attempts',
-                    $ct + 1
-                );
-            } else {
-                $request->session()->put(
-                    'login_attempts',
-                    1
-                );
-            }
-        }
-
         throw ValidationException::withMessages([
             $this->username() => [trans('auth.failed')],
         ]);

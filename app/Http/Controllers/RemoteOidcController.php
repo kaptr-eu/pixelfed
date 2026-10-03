@@ -61,6 +61,12 @@ class RemoteOidcController extends Controller
         if ($mappedUser) {
             $this->guarder()->login($mappedUser->user);
 
+            // OIDC accounts have a random, unknowable password, so they can
+            // never satisfy the sudo-mode (RequirePassword / dangerzone) prompt.
+            // Mark the session password-confirmed at SSO login so they can reach
+            // dangerzone-gated settings within the normal confirmation window.
+            $request->session()->passwordConfirmed();
+
             return redirect('/');
         }
 
@@ -76,6 +82,10 @@ class RemoteOidcController extends Controller
             'user_id' => $user->id,
             'oidc_id' => $userInfoId,
         ]);
+
+        // See note above: mark the freshly-registered OIDC session
+        // password-confirmed so dangerzone routes are reachable.
+        $request->session()->passwordConfirmed();
 
         return redirect('/');
     }
@@ -121,10 +131,16 @@ class RemoteOidcController extends Controller
         return Auth::guard();
     }
 
-    private function ensure_valid_username($starting_username)
+    private function ensure_valid_username($starting_username): string
     {
         $starting_username = explode('@', $starting_username)[0];
         $temp_username = preg_replace('/[^a-z0-9_]+/i', '', $starting_username);
+        // Strip underscores too: preg_replace keeps them, but ValidUsername
+        // allows at most one separator total, so a multi-underscore IdP
+        // preferred_username (a_b_c) would fail validation and permanently
+        // lock the user out of OIDC provisioning. Removing all underscores
+        // guarantees a zero-separator, validator-safe username.
+        $temp_username = str_replace('_', '', $temp_username);
 
         return substr($temp_username, 0, 30);
     }

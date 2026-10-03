@@ -14,7 +14,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Purify;
@@ -59,9 +58,13 @@ class RegisterController extends Controller
      */
     public function validator(array $data)
     {
-        if (config('database.default') == 'pgsql') {
-            $data['username'] = strtolower($data['username']);
-            $data['email'] = strtolower($data['email']);
+        if (db_is_pgsql()) {
+            if (isset($data['username'])) {
+                $data['username'] = strtolower($data['username']);
+            }
+            if (isset($data['email'])) {
+                $data['email'] = strtolower($data['email']);
+            }
         }
 
         $usernameRules = [
@@ -94,8 +97,8 @@ class RegisterController extends Controller
             'password' => 'required|string|min:'.config('pixelfed.min_password_length').'|confirmed',
         ];
 
-        if ((bool) config_cache('captcha.enabled') && (bool) config_cache('captcha.active.register')) {
-            $rules['h-captcha-response'] = 'required|captcha';
+        if (app('captcha.manager')->activeOn('register')) {
+            $rules[app('captcha.manager')->active()->responseField()] = 'required|captcha_verify';
         }
 
         return Validator::make($data, $rules);
@@ -109,9 +112,13 @@ class RegisterController extends Controller
      */
     public function create(array $data)
     {
-        if (config('database.default') == 'pgsql') {
-            $data['username'] = strtolower($data['username']);
-            $data['email'] = strtolower($data['email']);
+        if (db_is_pgsql()) {
+            if (isset($data['username'])) {
+                $data['username'] = strtolower($data['username']);
+            }
+            if (isset($data['email'])) {
+                $data['email'] = strtolower($data['email']);
+            }
         }
 
         return User::create([
@@ -125,8 +132,6 @@ class RegisterController extends Controller
 
     /**
      * Show the application registration form.
-     *
-     * @return Response
      */
     public function showRegistrationForm(): RedirectResponse|View
     {
@@ -147,16 +152,14 @@ class RegisterController extends Controller
                 }
 
                 return view('auth.register');
-            } else {
-                return view('auth.register');
             }
-        } else {
-            if ((bool) config_cache('instance.curated_registration.enabled') && config('instance.curated_registration.state.fallback_on_closed_reg')) {
-                return redirect('/auth/sign_up');
-            } else {
-                abort(404);
-            }
+
+            return view('auth.register');
         }
+        if ((bool) config_cache('instance.curated_registration.enabled') && config('instance.curated_registration.state.fallback_on_closed_reg')) {
+            return redirect('/auth/sign_up');
+        }
+        abort(404);
     }
 
     /**
@@ -165,8 +168,6 @@ class RegisterController extends Controller
      * When email verification is enforced the new account gets no session.
      * It is parked on the login verify step, same as an unverified login,
      * and only gets a session once the confirm link is opened.
-     *
-     * @return Response
      */
     public function register(Request $request)
     {
@@ -192,7 +193,7 @@ class RegisterController extends Controller
 
         event(new Registered($user = $this->create($request->all())));
 
-        if ((bool) config('pixelfed.enforce_email_verification') && is_null($user->email_verified_at)) {
+        if ((bool) config_cache('pixelfed.enforce_email_verification') && is_null($user->email_verified_at)) {
             PendingLoginService::start($request, $user, false, PendingLoginService::STEP_VERIFY);
             EmailVerificationService::send($user);
 

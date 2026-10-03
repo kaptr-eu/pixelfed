@@ -168,70 +168,93 @@
                     <form method="POST" action="{{ route('login') }}">
                         @csrf
 
-                        <div class="form-group row mb-0">
+                        <div class="form-group row mb-3">
                             <div class="col-md-12">
-                                <label for="email" class="small font-weight-bold text-muted mb-0">{{ __('auth.emailAddress') }}</label>
-                                <input id="email" type="email" class="form-control{{ $errors->has('email') ? ' is-invalid' : '' }}" name="email" value="{{ old('email') }}" placeholder="{{ __('Email') }}" required autofocus>
+                                <label for="email" class="small font-weight-bold text-muted mb-0">
+                                    {{ __('auth.emailAddress') }}
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    value="{{ old('email') }}"
+                                    class="form-control{{ $errors->has('email') ? ' is-invalid' : '' }}"
+                                    placeholder="{{ __('auth.email') }}"
+                                    autocomplete="username"
+                                    @if ($errors->has('email')) aria-invalid="true" aria-describedby="emailError" @endif
+                                required
+                                autofocus>
 
                                 @if ($errors->has('email'))
-                                <span class="invalid-feedback">
+                                <span id="emailError" class="invalid-feedback" role="alert">
                                     <strong>{{ $errors->first('email') }}</strong>
                                 </span>
                                 @endif
-
-                                <div class="help-text small text-right mb-0">
-                                    <a href="{{ route('email.forgot') }}" class="small text-muted font-weight-bold">
-                                        {{ __('Forgot Email') }}
-                                    </a>
-                                </div>
                             </div>
                         </div>
 
-                        <div class="form-group row mb-0">
+                        <div class="form-group row mb-2">
                             <div class="col-md-12">
-                                <label for="password" class="small font-weight-bold text-muted mb-0">{{ __('auth.password') }}</label>
-                                <input id="password" type="password" class="form-control{{ $errors->has('password') ? ' is-invalid' : '' }}" name="password" placeholder="{{ __('Password') }}" required>
+                                <label for="password" class="small font-weight-bold text-muted mb-0">
+                                    {{ __('auth.password') }}
+                                </label>
+                                <div class="input-group">
+                                    <input
+                                        id="password"
+                                        type="password"
+                                        name="password"
+                                        class="form-control{{ $errors->has('password') ? ' is-invalid' : '' }}"
+                                        placeholder="{{ __('auth.password') }}"
+                                        autocomplete="current-password"
+                                        @if ($errors->has('password')) aria-invalid="true" aria-describedby="passwordError" @endif
+                                    required>
+                                    <div class="input-group-append">
+                                        <button
+                                            type="button"
+                                            id="togglePassword"
+                                            class="btn btn-outline-secondary"
+                                            aria-label="{{ __('Press and hold to show password') }}"
+                                            aria-controls="password"
+                                            aria-pressed="false">
+                                            <i class="far fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
 
                                 @if ($errors->has('password'))
-                                <span class="invalid-feedback">
+                                <span id="passwordError" class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $errors->first('password') }}</strong>
                                 </span>
                                 @endif
-
-                                <p class="help-text small text-right mb-0">
-                                    <a href="{{ route('password.request') }}" class="small text-muted font-weight-bold">
-                                        {{ __('auth.forgot') }}
-                                    </a>
-                                </p>
                             </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <a href="{{ route('email.forgot') }}" class="small text-muted font-weight-bold">
+                                {{ __('auth.forgotEmail') }}
+                            </a>
+                            <a href="{{ route('password.request') }}" class="small text-muted font-weight-bold">
+                                {{ __('auth.forgot') }}
+                            </a>
                         </div>
 
                         <div class="form-group row">
                             <div class="col-md-12">
-                                <div class="checkbox">
-                                    <label>
-                                        <input type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }}>
-                                        <span class="font-weight-bold ml-1 text-muted">
-                                            {{ __('auth.remember') }}
-                                        </span>
+                                <div class="custom-control custom-checkbox">
+                                    <input
+                                        id="remember"
+                                        type="checkbox"
+                                        name="remember"
+                                        class="custom-control-input"
+                                        {{ old('remember') ? 'checked' : '' }}>
+                                    <label class="custom-control-label font-weight-bold text-muted" for="remember">
+                                        {{ __('auth.remember') }}
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        @if(
-                        (bool) config_cache('captcha.enabled') &&
-                        (bool) config_cache('captcha.active.login') ||
-                        (
-                        (bool) config_cache('captcha.triggers.login.enabled') &&
-                        request()->session()->has('login_attempts') &&
-                        request()->session()->get('login_attempts') >= config('captcha.triggers.login.attempts')
-                        )
-                        )
-                        <div class="d-flex justify-content-center mb-3">
-                            {!! Captcha::display() !!}
-                        </div>
-                        @endif
+                        <x-captcha surface="login" wrapperClass="d-flex justify-content-center mb-3" />
 
                         <button type="submit" class="btn btn-primary btn-block btn-lg font-weight-bold rounded-pill">
                             {{ __('auth.login') }}
@@ -333,6 +356,66 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('togglePassword');
+            const password = document.getElementById('password');
+            if (toggle && password) {
+                const icon = toggle.querySelector('i');
+
+                const reveal = function() {
+                    password.type = 'text';
+                    toggle.setAttribute('aria-pressed', 'true');
+                    if (icon) {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                };
+
+                const conceal = function() {
+                    password.type = 'password';
+                    toggle.setAttribute('aria-pressed', 'false');
+                    if (icon) {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    }
+                };
+
+                toggle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    reveal();
+                });
+                toggle.addEventListener('mouseup', conceal);
+                toggle.addEventListener('mouseleave', conceal);
+
+                // Touch devices.
+                toggle.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    reveal();
+                }, {
+                    passive: false
+                });
+                toggle.addEventListener('touchend', conceal);
+                toggle.addEventListener('touchcancel', conceal);
+
+                toggle.addEventListener('keydown', function(e) {
+                    if (e.key === ' ' || e.key === 'Enter' || e.key === 'Spacebar') {
+                        e.preventDefault();
+                        reveal();
+                    }
+                });
+                toggle.addEventListener('keyup', function(e) {
+                    if (e.key === ' ' || e.key === 'Enter' || e.key === 'Spacebar') {
+                        conceal();
+                    }
+                });
+                toggle.addEventListener('blur', conceal);
+
+                document.addEventListener('visibilitychange', function() {
+                    if (document.hidden) {
+                        conceal();
+                    }
+                });
+            }
+
             const emailInput = document.getElementById('email');
             if (!emailInput) {
                 return;
