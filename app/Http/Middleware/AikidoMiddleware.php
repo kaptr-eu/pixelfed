@@ -24,7 +24,7 @@ class AikidoMiddleware
             if ($decision->type == 'ratelimited') {
                 abort(429, 'You are rate limited, please wait a minute before trying again.');
             } else {
-                abort(403, 'You are blocked, contact samuel@aikido.dev if you think this is a mistake.');
+                abort(403, 'You are blocked, contact info@kaptr.eu if you think this is a mistake.');
             }
         }
 
